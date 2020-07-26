@@ -4,6 +4,8 @@ title:  "Runtime Subscriptions in Otto"
 date:   2016-07-08 06:51:59
 author: abhishek
 categories: Tech, Android
+img: otto-class-diagram.png
+
 ---
 
 *Originally published at [Runtime Subscriptions in Otto](http://eng.moldedbits.com/tech,/android/2016/07/08/runtime-subscriptions-in-Otto.html)*
@@ -111,7 +113,7 @@ While there is some amount of work, it provides a flexible and scalable way of s
 There are 3 buttons in `MainActivity`, each button emits an event which is captured by subscribed model and reflects it in logs. `MultiEventModel` shows that how this framework can even be used for subscribing to multiple events at runtime with little help from `Reflection`.
 
 Here is a class diagram from same repository to summarize everything
-<img src="/blog/assets/images/otto-class-diagram.png" alt="Class Diagram - Otto Runtime Subscriptions" style="width: 900px; margin: auto;"/>
+<img src="/assets/images/otto-class-diagram.png" alt="Class Diagram - Otto Runtime Subscriptions" style="width: 900px; margin: auto;"/>
 
 Here I have kept one `OttoEventDelegate` object in each `Model` for simplicity, but, A list can kept and handled as per use case. As many delegate objects can be added in that list enabling `Model` to subscribe to as many events at runtime.
 

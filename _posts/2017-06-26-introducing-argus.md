@@ -4,6 +4,7 @@ title:  "Introducing Argus- OnBoarding in Android Apps Simplified"
 date:   2017-06-26 05:51:59
 author: abhishek
 categories: Technical Android
+img: argus_sample.png
 ---
 
 *Originally published at [Introducing Argus- OnBoarding in Android Apps Simplified](http://eng.moldedbits.com/technical/android/2017/06/26/introducing-argus.html)*
@@ -14,7 +15,7 @@ With in-built support for Google and Facebook login / signup, Argus makes it tri
 
 A few lines of code can get you a screen looking like,
 
-![screenshot]({{ site.url }}/blog/assets/images/argus_sample.png){:style="width: 250px; margin:auto;"}
+![screenshot]({{ site.url }}/assets/images/argus_sample.png){:style="width: 250px; margin:auto;"}
 
 #### The motivation behind Argus
 

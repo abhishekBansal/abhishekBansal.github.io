@@ -4,9 +4,8 @@ title:  "Espresso unit testing and things to watch out in Android"
 date:   2019-11-19 8:00:00
 author: Abhishek
 categories: Android, Testing, UI Testing, Espresso
+img: espresso-testing-cover.jpeg
 ---
-
-![](/blog/assets/images/espresson-testing-cover.jpeg)
 
 *Originally published at [Espresso unit testing and things to watch out in Android](https://medium.com/swlh/espresso-unit-testing-and-things-to-watch-out-in-android-b5435a91c677)*
 

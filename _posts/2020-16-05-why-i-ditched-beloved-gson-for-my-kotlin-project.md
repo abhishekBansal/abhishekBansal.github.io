@@ -4,8 +4,8 @@ title:  "Why I ditched beloved Gson for my Kotlin project"
 date:   2020-05-16 8:00:00
 author: Abhishek
 categories: Android, Gson, Moshi, Serialization, Deserialization
+img: ditched-gson-moshi-cover.png
 ---
-![](/blog/assets/images/ditched-gson-moshi-cover.png)
 
 *Originally published at [Why I ditched beloved Gson for my Kotlin project](https://medium.com/swlh/why-i-ditched-beloved-gson-for-my-kotlin-project-4acc1809fb68)*
 

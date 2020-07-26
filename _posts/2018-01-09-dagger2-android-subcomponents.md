@@ -4,6 +4,7 @@ title:  "Using Dagger2 SubComponents to Propagate Dependancies"
 date:   2018-01-09 8:00:00
 author: abhishek
 categories: Android, Dependency Injection, Dagger2
+img: dagger-schema.png
 ---
 
 *Originally published at [Using Dagger2 SubComponents to Propagate Dependancies](http://eng.moldedbits.com/android,/dependency/injection/2018/01/09/dagger2-android-subcomponents.html)*
@@ -14,8 +15,8 @@ dependency Injection makes your code scalable and testable. `Dagger2` is almost 
 In this post I am going to demonstrate use of `Subcomponents` in a very common android app use-case and show how dependency Injection is done from top to bottom. [In this app](https://github.com/abhishekBansal/android-mvp-retrofit2-dagger2-rxjava2-testing) user can see list of movies and click on any list item to see its details. Movie list is fetched from remote API, result of this API are cached in local database and this database is then used to present movie details on movie detail screen.
 <table>
   <tr>
-    <td><img src="{{site.url}}/blog/assets/images/movie-list.png" alt="Movie List" style="width: 200px;"/></td>
-    <td><img src="{{site.url}}/blog/assets/images/movie-detail.png" alt="MovieDetail" style="width: 200px;"/></td>
+    <td><img src="{{site.url}}/assets/images/movie-list.png" alt="Movie List" style="width: 200px;"/></td>
+    <td><img src="{{site.url}}/assets/images/movie-detail.png" alt="MovieDetail" style="width: 200px;"/></td>
   </tr>
 </table>
 
@@ -34,7 +35,7 @@ In movie example there are two top level modules which provide dependancies `App
 
 Here is a diagram explaining flow that we are going to implement in this app
 
-<img src="{{site.url}}/blog/assets/images/dagger-schema.png" alt="Dagger2 Block Diagram" style="width: 800px;"/>
+<img src="{{site.url}}/assets/images/dagger-schema.png" alt="Dagger2 Block Diagram" style="width: 800px;"/>
 
 Let start diving into code. We will break and understand above diagram piece by piece. Here is code for `ApiModule`
 
