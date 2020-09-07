@@ -8,8 +8,6 @@ img: otto-class-diagram.png
 
 ---
 
-*Originally published at [Runtime Subscriptions in Otto](http://eng.moldedbits.com/tech,/android/2016/07/08/runtime-subscriptions-in-Otto.html)*
-
 One should strive for loosely coupled design in software development. [Otto](http://square.github.io/otto/) is great library for Android which keep objects loosely coupled but still allow them to communicate efficiently.
 
 Otto provides very simple mechanism for event publishing/subscribing which is based on Java annotations like `@Subscribe` and `@Produce`. However, while events can be posted on Runtime using `post()` method, subscriptions are compile time only.
@@ -118,3 +116,5 @@ Here is a class diagram from same repository to summarize everything
 Here I have kept one `OttoEventDelegate` object in each `Model` for simplicity, but, A list can kept and handled as per use case. As many delegate objects can be added in that list enabling `Model` to subscribe to as many events at runtime.
 
 Happy Coding !!
+
+Note: This article was *Originally published at [Runtime Subscriptions in Otto](http://eng.moldedbits.com/tech,/android/2016/07/08/runtime-subscriptions-in-Otto.html)*

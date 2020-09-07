@@ -7,8 +7,6 @@ categories: Technical Android
 img: argus_sample.png
 ---
 
-*Originally published at [Introducing Argus- OnBoarding in Android Apps Simplified](http://eng.moldedbits.com/technical/android/2017/06/26/introducing-argus.html)*
-
 Argus is a customizable and extensible open source library that allows developers to quickly integrate user on-boarding flow for Android apps, including login, signup and forgot password screens.
 
 With in-built support for Google and Facebook login / signup, Argus makes it trivial to get up and running when starting with a new app.
@@ -60,3 +58,5 @@ Argus is in a nascent stage right now and you are very much invited to contribut
 
 
 Happy coding !
+
+Note: This article was *Originally published at [Introducing Argus- OnBoarding in Android Apps Simplified](http://eng.moldedbits.com/technical/android/2017/06/26/introducing-argus.html)*

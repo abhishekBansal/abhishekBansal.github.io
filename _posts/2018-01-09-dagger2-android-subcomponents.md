@@ -7,9 +7,6 @@ categories: Android, Dependency Injection, Dagger2
 img: dagger-schema.png
 ---
 
-*Originally published at [Using Dagger2 SubComponents to Propagate Dependancies](http://eng.moldedbits.com/android,/dependency/injection/2018/01/09/dagger2-android-subcomponents.html)*
-
-
 dependency Injection makes your code scalable and testable. `Dagger2` is almost de-facto dependency Injection framework in Java these days, and, Its supported and used by Google which makes it first choice of all Android Developers.
 
 In this post I am going to demonstrate use of `Subcomponents` in a very common android app use-case and show how dependency Injection is done from top to bottom. [In this app](https://github.com/abhishekBansal/android-mvp-retrofit2-dagger2-rxjava2-testing) user can see list of movies and click on any list item to see its details. Movie list is fetched from remote API, result of this API are cached in local database and this database is then used to present movie details on movie detail screen.
@@ -198,3 +195,5 @@ You can find complete source code on [github here](https://github.com/abhishekBa
 If you have any suggestions, let me know in comments!
 
 Happy Coding!
+
+Note: This article was *Originally published at [Using Dagger2 SubComponents to Propagate Dependancies](http://eng.moldedbits.com/android,/dependency/injection/2018/01/09/dagger2-android-subcomponents.html)*

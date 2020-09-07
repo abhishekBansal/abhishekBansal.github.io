@@ -7,9 +7,6 @@ categories: Android, Gson, Moshi, Serialization, Deserialization
 img: ditched-gson-moshi-cover.png
 ---
 
-*Originally published at [Why I ditched beloved Gson for my Kotlin project](https://medium.com/swlh/why-i-ditched-beloved-gson-for-my-kotlin-project-4acc1809fb68)*
-
-
 In my brief experience with Android developers and community so far I have seen lot of people talking about automated testing and its importance, but a very few people get the chance to actually write extensive tests for their code. They hardly ever have time for it. I also happen to be one of them. Although I have heard, read and talked about it a lot, I have very limited hands on experience. 
 
 In one of the apps I am currently working on, team finally decided to start writing tests for good. We were first aiming to build a smoke testsuite for complete app so we started with UI testing with [Espresso](https://developer.android.com/training/testing/espresso). We also use [Koin](http://insert-koin.io/) as DI framework in this project.
@@ -143,3 +140,5 @@ As you can see it was pretty daunting to setup UI unit testing in our Android ap
 Please feel free to drop your feedback and suggestions.
 
 Happy Coding!
+
+Note: This article was *Originally published at [Why I ditched beloved Gson for my Kotlin project](https://medium.com/swlh/why-i-ditched-beloved-gson-for-my-kotlin-project-4acc1809fb68)*
