@@ -446,10 +446,7 @@ template {
 .highlighter-rouge {
   color: #ce887b;
   font-weight: 400;
-  border: 1px solid #607D8B;
-  -webkit-border-radius: 3px;
-          border-radius: 3px;
-  padding: 0.1rem 0.5rem;
+  padding: 0.1rem 0.1rem;
 }
 
 .highlight .hll {
@@ -801,11 +798,14 @@ img + em {
 }
 
 blockquote {
-  border-left: 5px solid #000;
+  border-left: 3px solid #000;
   padding-left: 1.1rem;
+  padding-bottom: 0.5rem;
+  padding-top: 0.5rem;
   margin-left: 1rem;
   font-style: italic;
-  color: #ada8a8;
+  color: #555555;
+  background-color: #eeeeee;
 }
 
 pre {
