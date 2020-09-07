@@ -11,7 +11,7 @@ img: otto-class-diagram.png
 One should strive for loosely coupled design in software development. [Otto](http://square.github.io/otto/) is great library for Android which keep objects loosely coupled but still allow them to communicate efficiently.
 
 Otto provides very simple mechanism for event publishing/subscribing which is based on Java annotations like `@Subscribe` and `@Produce`. However, while events can be posted on Runtime using `post()` method, subscriptions are compile time only.
-In my recent project most of my objects/views were getting generated at runtime and I needed something which allows me to setup communication at runtime. `Otto` was already included in my project and then I posted [this](http://stackoverflow.com/questions/37839074/otto-event-bus-runtime-subscription-for-events) question on stackoverflow for help. I got two interesting solutions there.
+In my recent project most of my objects/views were getting generated at runtime and I needed something which allows me to setup communication at runtime. `Otto` was already included in my project and then I posted [this](http://stackoverflow.com/questions/37839074/otto-event-bus-runtime-subscription-for-events) question on Stackoverflow for help. I got two interesting solutions there.
 Lets discuss them one by one
 
 #### Solution 1 - Use different model objects each subscribing for a different event
