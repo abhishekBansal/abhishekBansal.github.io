@@ -6,9 +6,6 @@ author: Abhishek
 categories: Android, Testing, UI Testing, Espresso
 ---
 
-*Originally published at [My Findings on Gradle Android Test Plugin](https://medium.com/@discover.ab/my-findings-on-gradle-android-test-plugin-87ba973e6965)*
-
-
 In my [last article](https://medium.com/swlh/espresso-unit-testing-and-things-to-watch-out-in-android-b5435a91c677) I listed out some of the issues that we faced when trying to setup `AndroidX Testing Framework` with [Espresso](https://developer.android.com/training/testing/ui-testing/espresso-testing). While there were many issues, in the end tests ran successfully and I hoped this was one time thing. 
 
 Turns out that was not the case at all!
@@ -58,3 +55,5 @@ I spent about 20 frustrating hours figuring all this out. While everyone(includi
 I am also open for suggestions at this point, if you think I am misinformed or I have wrongly presented something please feel free to correct me.
 
 Happy Coding!
+
+Note: This article was *Originally published at [My Findings on Gradle Android Test Plugin](https://medium.com/@discover.ab/my-findings-on-gradle-android-test-plugin-87ba973e6965)*

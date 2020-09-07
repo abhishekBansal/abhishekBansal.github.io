@@ -7,139 +7,176 @@ categories: Android, Gson, Moshi, Serialization, Deserialization
 img: ditched-gson-moshi-cover.png
 ---
 
-*Originally published at [Why I ditched beloved Gson for my Kotlin project](https://medium.com/swlh/why-i-ditched-beloved-gson-for-my-kotlin-project-4acc1809fb68)*
+I have been developing Android apps for about 6.5 years now. For every small or big Android app I have churned out, I have blindly used `Gson` for serialization and deserialization. `Gson` seemed to be flawless as it almost read my mind.
 
+This changed in one of my recent `Kotlin` only project. Like every other project we started off with Gson here as well. But then, things changed when we started facing dreaded `NullPointerException`s. But wait, did I not say `Kotlin`? And isn't Kotlin supposed to be our solution for this billion dollar problem?
 
-In my brief experience with Android developers and community so far I have seen lot of people talking about automated testing and its importance, but a very few people get the chance to actually write extensive tests for their code. They hardly ever have time for it. I also happen to be one of them. Although I have heard, read and talked about it a lot, I have very limited hands on experience. 
+Well no! Kotlin can only do so much if developers are so determined to get `NullPointerExceptions`. `Gson` uses reflection for deserializing `JSON` to `Java` or `Kotlin` objects. `Java` does not have notion of `nullable` types like `Kotlin`. `Gson` was originally written with Java in mind and it fails to understand difference between nullable and non-nullable types of Kotlin.
 
-In one of the apps I am currently working on, team finally decided to start writing tests for good. We were first aiming to build a smoke testsuite for complete app so we started with UI testing with [Espresso](https://developer.android.com/training/testing/espresso). We also use [Koin](http://insert-koin.io/) as DI framework in this project.
+In this project our APIs were not mature enough to include all possible data validations and schema was not as strictly defined. So app will crash here and there while testing against dev servers, because some field that we have declared as non-nullable did not come in API or it did not come in right format. This happened because some other client is still developing feature or due to some bug. There was a possibility that something like this may happen in production as well.
 
-Honestly, I found that testing on Android is a mess for beginners at-least. In this article I am going to point out some of the pitfalls and mistakes that we came across.
+In order to avoid this we were left with two choices, 
 
-## Libraries
-There are literally tons and tons of google libraries available which are available for testing. Official [AndroidX testing guide](https://developer.android.com/training/testing/set-up-project) lists more then 10 libraries for doing just UI tests. These are the ones that you add as `androidTestImplementation` in your `build.gradle` similary there are other bunch of libraries for JVM unit tests. Not just these, in lot of tutorials, code samples and stackoverflow posts you will find older non AndroidX version of these. 
+1. We make all our model fields `nullable`. i.e. our model will look something like this
 
-I would recommend to not include all these at once in your project. Just start with one and then include the ones that you need, so that, you exactly know what you are including and for what. This just helps in building understanding step by step.
+    ```kotlin
+    data class Person(
+        val id: String?,
+        val name: String?,
+        val gender: Gender?,
+        val address: Address?
+    )
+    ```
+    Which feels wrong on so many levels. 
+    1. This will make bunch of code wrapped in `.let{}` calls unnecessarily
+    2. In my opinion it just looks ugly and makes code hard to follow because existence of every field is uncertain. 
+    3. In most of the cases it does not even make sense to deserialize an object which is corrupted and unusable in app anyways. e.g. let's suppose there is a feature where app allows user to edit details and post it on server with help of `id`. In this case an object with `null` id will break the feature. Not to mention you will have to do special handling for this case. Its best to have id as `non-nullable` field.
+2. Use some [evil getter setter hack like illustrated in this article](https://proandroiddev.com/most-elegant-way-of-using-Gson-kotlin-with-default-values-and-null-safety-b6216ac5328c)
 
-I required following libs in order to make my bare minimum sample work
+Both of these are unacceptable and sort of break `Kotlin`'s soul. It is when I decided to move project to [Moshi](https://github.com/square/moshi). Moshi is small when compared to Gson and [tries to stay focused by doing less](https://github.com/square/moshi), but, its power lies in its simplicity. Moshi understands difference between `nullable` and `non-nullable` fields in Kotlin. This single handedly became deciding factor for me. 
 
-```groovy
-    // testing with Koin
-    androidTestImplementation ("org.koin:koin-test:$koin_version") {
-        exclude group: 'org.mockito'
+Knowing that if a given field is declared as `non-null` it will not be null under any circumstance, suddenly increased the trust factor in my own code by manifolds. 
+
+Let's look at some other benefits of using Moshi over Gson.
+
+### Exception Handling
+`Moshi` doesn't silently fail when there is a mismatch in field data type or nullbility contract. It raises a `JSONDataException` which clients are responsible for handling. This makes you aware about subtle mistakes which are easily missed with Gson.
+
+### Moshi does not rely on Reflection
+`Gson` is purely based on reflection where as `Moshi` supports both code generation and reflection. Reflection support can be added with `moshi-reflect` artefact but I don't really use it (Reflection is Slow and has same problems as Gson!). Code generation is supported in version 1.6+ with `moshi-kotlin-codegen` annotation processor.
+
+### Moshi is Fast
+As per [this benchmarking](https://zacsweers.github.io/json-serialization-benchmarking/) Moshi is faster then Gson in serialization and de-serialization.
+
+## Let's see some code
+
+Let's consider this JSON
+```json
+{
+  "vehicles": [
+    {
+      "model": "m1",
+      "type": "car",
+      "tyres": [
+        { "type": "mrf" },
+        { "type": "apollo" }
+      ]
+    },
+    {
+      "type": "truck",
+      "tyres": [
+        { "type": "mrf" },
+        { "type": "apollo" },
+        { "type": "apollo" }
+      ]
     }
-
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
-    // stuff like ActivityTestRule
-    androidTestImplementation 'androidx.test:rules:1.2.0'
-    // AndroidJUnit4
-    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
-    // mockito android
-    androidTestImplementation 'org.mockito:mockito-android:3.1.0'
-```
-
-## Test/Mock/Fake Application
-You need a mock application class as an entry point for UI tests. You can initialize your dependency graph here. Instead of your actual `Application` class this will instantiated with your tests. You will also need a custom `Runner` instance where you will instantiate Application.
-Here is my `TestApplication`
-```kotlin
-class TestApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-
-        startKoin {
-            androidLogger()
-            androidContext(this@TestApplication)
-            // no modules are loaded to begin with
-            // modules will be loaded in respective tests as per requirement
-            modules(emptyList())
-        }
-    }
+  ]
 }
 ```
 
-Here is my `TestRunner`
+Here corresponding Kotlin data classes
+
 ```kotlin
-class MyTestRunner : AndroidJUnitRunner() {
-    override fun newApplication(cl: ClassLoader?, className: String?, context: Context?): Application {
-        return super.newApplication(cl, TestApplication::class.java.name, context)
-    }
+data class VehicleContainer(val vehicles: List<Vehicle>)
+
+abstract class Vehicle {
+    abstract val model: String
+    abstract val type : String
+    abstract val tyres: List<Tyre>?
+}
+
+data class Car(override val model: String,
+               override val type: String,
+               override val tyres: List<Tyre>?): Vehicle()
+
+data class Truck(override val model: String,
+                 override val type: String,
+                 override val tyres: List<Tyre>?): Vehicle()
+
+data class Tyre(val type: String)
+```
+
+Things to note:
+1. We are working with polymorphic list of objects here. `Vehicle` is base class, `Car` and `Truck` are derived classes. 
+2. `model` and `type` variables are mandatory and cannot be null.
+
+Let's see how Gson and Moshi can deserialize this.
+
+### Gson Deserialization
+In order to deserialize `List<Vehicle>` we need to add support for [RuntimeTypeAdapterFactory](https://docs.mapbox.com/android/api/mapbox-java/libjava-geojson/4.6.0/com/google/Gson/typeadapters/RuntimeTypeAdapterFactory.html).
+
+Here is how Gson object will be constructed
+```kotlin
+ val vehicleAdapterFactory: RuntimeTypeAdapterFactory<Vehicle> =
+     RuntimeTypeAdapterFactory.of(Vehicle::class.java, "type")
+       .registerSubtype(Vehicle::class.java, "car")
+       .registerSubtype(Vehicle::class.java, "truck")
+
+  val Gson = GsonBuilder().registerTypeAdapterFactory(vehicleAdapterFactory)
+       .create()
+```
+
+Now to deserialize
+```kotlin
+val vehicleContainer = Gson.fromJson(jsonStr, VehicleContainer.class)
+```
+
+Note that even though our original JSON does not include `model` for `Truck` object Gson will deserialize this object and set `model` to `null` which may lead to unexpected `NullPointerException` later.
+
+### Moshi Deserialization
+Moshi also supports polymorphic serialization and deserialization via its [PolymorphicJsonAdapterFactory](https://github.com/square/moshi/blob/master/adapters/src/main/java/com/squareup/moshi/adapters/PolymorphicJsonAdapterFactory.java)
+
+Before deserialization moshi need to be able to generate relevant adapters. This is done via `@JsonClass(generateAdapter = true)` annotation. For example
+```kotlin
+@JsonClass(generateAdapter = true)
+data class Car(override val model: String,
+               override val type: String,
+               override val tyres: List<Tyre>?): Vehicle()
+```
+
+Next is setting up Moshi instance
+
+```kotlin
+val vehicleAdapterFactory = PolymorphicJsonAdapterFactory.of(Vehicle::class.java, "type")
+        .withSubtype(Car::class.java, "car")
+        .withSubtype(Truck::class.java, "truck")
+
+val moshi = Moshi.Builder().add(vehicleAdapterFactory).build()
+```
+
+Now deserialize
+```kotlin
+try {
+    val vehicleContainer = moshi.adapter(VehicleContainer::class.java)
+        .fromJson(jsonStr, VehicleContainer.class)
+} catch(error: JsonDataException) {
 }
 ```
 
-You will then also need to specify this test runner in your `build.gradle` `defaultConfig` block
-```groovy
-testInstrumentationRunner "com.abhishek.mvvmdemo.MyTestRunner"
+Here Moshi finds that second object in list does not respect language contract and hence, it fails the deserialization process. You will get a `JSONDataException` instead of expected `VehicleContainer` object.
+
+This is a little nuance because in my case I still want to have objects which respect full contract like `Car` object in this example. We are using a modified version of this [SkipBadElementsListAdapter](https://stackoverflow.com/a/54190660/1107755) which solves the problem for us.
+
+Moshi object now builds as follows
+```
+val moshi = Moshi.Builder()
+    .add(vehicleAdapterFactory)
+    .add(SkipBadElementsListAdapter.Factory)
+    .build()
 ```
 
-## Mockk vs Mockito
-I started with [Mockito](https://site.mockito.org/) for mocking dependencies. Then A few people recommended [Mockk](https://mockk.io/#dsl-examples) over `Mockito`. I tried it and I liked it intially. One of the great thing about it was that it doesn't require you to declare your `Kotlin` classes and methods as `open`. Also I found that there were fewer issues to deal with when using `Mockk` then with `Mockito`.
+After this deserialization process we get a nice `vehicles` list inside `VehiclesContainer` object with one pristine object. 
 
-But then I tested my app on API 27, tests that were running fine on API 28 and 29 suddenly started breaking. Turns out `Mockk` does that `open` magic only for devices with API level >= 28. This was a deal breaker!
+Similarly you can use other adapters available [here](https://github.com/serj-lotutovici/moshi-lazy-adapters) and [here](https://github.com/square/moshi/tree/master/adapters) to customize moshi as per your needs or you can write your own.
 
-At this point we decided to go back to `Mockito` as its a established library, some of the test libraries like `koin-test` were already using it under the hood and we will have one less library to deal with.
+In my experience while Moshi is some work to begin with first time. It really pays off in long term because of increased trust and quality in your own code. After a migration period of about 2 weeks we never had to deal with those unexpected `NullPointerException`'s because of somebody else's mistake. 
 
-With our limited knowledge of `Mockk` this is not a final decision. If in future we feel that Mockk is more suitable option for Kotlin then we may decide to migrate.
-
-### @OpenForTesting to Rescue
-[Yigit Boyar](https://github.com/yigit) wrote this very useful [OpenForTesting](https://github.com/android/architecture-components-samples/issues/346) annotation which can be used to make all classes and methods open just for testing. Here is a great [step by step tutorial](https://proandroiddev.com/mocking-androidtest-in-kotlin-51f0a603d500) on how to set this up in your project. This worked great and now our tests started passing on API < 28.
-
-Remember even if any of your class is `open` in your codebase you still need to annotate it with `@OpenForTesting`(or whatever you choose to name it) in order to be able to mock its methods. Remember, that in `Kotlin` all methods in a class are closed by default. We spent hours on this because somehow, we managed to ignore this fact.
-
-## ActivityTestRule
-Test rules are great way of reusing code across your tests. Here is a [great article](https://medium.com/@elye.project/all-about-testrule-a-steroid-before-after-a74ef421e3e5) that explains test rules in detail. [ActivityTestRule](https://developer.android.com/reference/android/support/test/rule/ActivityTestRule) is one such test rule provided by good folks at Android. It takes care of managing an `Activity` environment for your test. 
-
-My bad that I didn't read/interpret documents properly and got an issue where I wasted a full day. My problem was that this rule was launching activity even before I loaded my dependencies with `Koin` and, as a result was getting `NoBeanDefFoundException`. More on this issue on this [Stackoverflow post](https://stackoverflow.com/questions/58728051/nobeandeffoundexception-with-mock-viewmodel-testing-with-koin-espresso/). (Special thanks to [basilisk](https://stackoverflow.com/users/493321/basilisk) for solution :))
-
-## Exceptions!
-All was good till this point and now my dependencies were getting loaded properly. I went on and wrote my first line in `@Test` method. 
-```kotlin
-// nothing to test lets just try to write my name in an editText
-onView(withId(R.id.emailEt))
-    .perform(ViewActions.typeText("Hello World!"))
-```
-
-You would think what can go wrong with that, right? Well first exception that I encountered here was 
-> PerformException: Error performing 'type text(Hello World!)' on view 'Animations or transitions are enabled on the target device.
-
-As per official [Espresso docs](https://developer.android.com/training/testing/espresso/setup) device animations should be turned off. More on this exception in next section.
-
-After I turned off the animations I fired up my test again only to find this exception
-```
-Caused by: androidx.test.espresso.InjectEventSecurityException: java.lang.SecurityException: Injecting to another application requires INJECT_EVENTS permission
-```
-Well, I just tried to write a string in a `EditText` didn't I? Turns out that Android 10 running on my phone tries to autofill the given editText. Now this auto-fill is important from user experience perspective and I cannot disable it in XML. Thanks to `ActivityRule` I was able to do this
-```kotlin
-activityRule.activity.findViewById<EditText>(R.id.emailEt)
-?.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-```
-
-### Random Issues ?!?
-Most surprising thing about this endeavour were random issues, some of these issues appear and disappear without even a code change. Cleaning the project, connecting disconnecting device seem to affect these but there is no clear pattern.
-
-For example I was almost always getting an exception complaining that `ViewModel.clear()` method wasn't mocked or definition not found. This method is final and cannot be mocked. Workaround is to add `ActivityRule.finishActivity()` call in `@After` method. Surprisingly, I am not able to reproduce this at the time of writing.
-
-There are time when a tests executes twice, it passes first time and then fails the second time. On `Stackoverflow` some people were suggesting that this might be happening because test are being run once as a part of suite and then individually. I am not fully convinced here, however, cleaning the build and re-running the test seem to resolve this issue. 
-
-## Turn off Animation
-
-Espresso tests require that device animations should be turned off. However, I have observed that if you pass `initialTouchMode=true` in `ActivityTestRule` this is no more a requirement.
-
-There is a gradle flag which allows you to disable device animations.
-```groovy
-android {
-    testOptions {
-        animationsDisabled = true
-    }
-}
-```
-
-Well, [this doesn't work](https://stackoverflow.com/questions/43474144/what-does-the-testoptions-animationsdisabled-property-in-android-gradle-plugin-d) or not reliably in my experience at the very least. Don't waste your time on this like I did.
-
-As of now we have started writing our tests without disabling them. But, if this a problem in future we can consider deploying some [custom solution like this](https://proandroiddev.com/one-rule-to-disable-them-all-d387da440318).
-
-
-As you can see it was pretty daunting to setup UI unit testing in our Android app. I hope this was one time annoyance. I have tried to compile all the issues that me and my team faced so that you as a reader know what you are getting into. Here is the [source code](https://github.com/abhishekBansal/mvvm-architecture-demo) of project I was working with. 
-
-Please feel free to drop your feedback and suggestions.
+#### References/Further Readings
+1. [Jake Wharton's Talk- A Few Ok Libraries](https://www.youtube.com/watch?v=WvyScM_S88c&feature=youtu.be)
+2. [Moshi BenchMarks](https://github.com/ZacSweers/json-serialization-benchmarking)
+3. [Gson Design Document](https://github.com/google/Gson/blob/master/GsonDesignDocument.md)
+4. [Reddit Thread](https://www.reddit.com/r/androiddev/comments/684flw/why_use_moshi_over_Gson/)
 
 Happy Coding!
+
+Note: This article was *Originally published at [Why I ditched beloved Gson for my Kotlin project](https://medium.com/swlh/why-i-ditched-beloved-gson-for-my-kotlin-project-4acc1809fb68)*
