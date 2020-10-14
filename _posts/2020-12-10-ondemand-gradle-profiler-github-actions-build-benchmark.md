@@ -18,4 +18,182 @@ A lot has already been written about Github Actions integration with Android bui
 One such complete workflow is called an Action which [can be redistributed](https://docs.github.com/en/free-pro-team@latest/actions/creating-actions) for other's to use. Pretty cool! Github actions are event driven which off-course integrate very well Github events like pull request, issue creation, comment, push etc. We will use this integration when we build our own action to benchmark builds.
 
 ### About Gradle Profiler
-[Gradle Profiler](https://github.com/gradle/gradle-profiler) is a great tool for automating profiling and benchmarking information of gradle builds. It takes care of consistency and reproducibility of builds
+[Gradle Profiler](https://github.com/gradle/gradle-profiler) is a great tool for automating profiling and benchmarking information of gradle builds. It takes care of consistency and reproducibility of builds by running warmup builds before running actual measurement builds. `gradle-profiler` can be used to benchmark any gradle task, we will be using it to measure clean debug builds. There are two ways of using `gradle-profiler`.
+First directly from command line like 
+> gradle-profiler --benchmark --project-dir <root-dir-of-build> <task>
+
+Second 
+> gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 5 --iteration 10
+
+Second is more convenient and more suitable for advanced scenarios. [`build_performance.scenarios`](https://github.com/gradle/gradle-profiler#advanced-profiling-scenarios) file is a configuration file in which you can write different scenarios to benchmark. Here is a simple config that we will be using for purposes of this article
+```
+# Can specify scenarios to use when none are specified on the command line
+default-scenarios = ["assemble"]
+
+# Scenarios are run in alphabetical order
+assemble {
+    # Show a slightly more human-readable title in reports
+    title = "Clean Build Debug"
+    # Run the 'assemble' task
+    tasks = ["assembleDebug"]
+    cleanup-tasks = ["clean"]
+}
+```
+Contents of this file are self explanatory, we have essentially written `./gradlew clean assembleDebug` command in this scenario file.
+
+### Lets Begin
+Let's begin writing Github action workflow now. We are going to create two jobs one for merge commit and one for PR head commit. Here is exactly what we are going to do
+#### Job 1
+1. Setup Trigger
+2. Clone Repo with merge commit
+3. Install JDK, SDKMAN and gradle-profiler
+4. Run profiler
+5. Save results for later comparison and use
+
+#### Job 2
+6. Repeat Step 2, 3 and 4 for PR Head commit this time
+7. Download results from Step #5 and run a Python Script to compare both
+8. Send results to Slack to your database or do whatever with it
+
+### Step 1- Setup Action Trigger
+Since we want to run this action on demand we will be using [Pull Request Comment Trigger](https://github.com/Khan/pull-request-comment-trigger) action to listen for Pull Request comments. As soon as trigger comment is posted action will start executing. I am using `benchmark-build` as trigger phrase for this workflow. This action need that we add following to trigger section of workflow
+```yml
+on:
+  issue_comment:
+    types: [created]
+```
+
+After that we can start writing our first Job
+```yml
+jobs:
+  build-merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: khan/pull-request-comment-trigger@master
+        id: check
+        with:
+          trigger: 'benchmark-build'
+```
+
+### Step 2- Clone repo with merge commit
+We can use standard [checkout action](https://github.com/actions/checkout) with default values for cloning repo.
+```yml
+      - name: Clone Repo
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+```
+I have added `submodules: recursive` just in case your repo contains any submodules like one of my projects.
+
+### Step 3- Install Required Dependencies
+We need `JDK 1.8`, [`SDKMAN`](https://sdkman.io/) and [`gradle-profiler`](https://github.com/gradle/gradle-profiler) to build and benchmark Android build. `SDKMAN` is required to install `gradle-profiler`. Here are [detailed instructions](https://github.com/gradle/gradle-profiler#installing) on it. Looks like this in YML
+
+```yml
+# Setup JDK on container
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+          
+      - name: Install SDKMAN, Gradle Profiler
+        run: |
+         curl -s "https://get.sdkman.io" | bash
+         source "$HOME/.sdkman/bin/sdkman-init.sh"
+         sdk install gradleprofiler
+```
+
+### Step 4- Run Profiler
+Somehow, I observed that `gradle-profiler` installation done in Step 3 was not available to next step so I fired benchmarking in same step only. That step now becomes
+```yml
+      - name: Install SDKMAN, Gradle Profiler and Begin Profiling
+        run: |
+         curl -s "https://get.sdkman.io" | bash
+         source "$HOME/.sdkman/bin/sdkman-init.sh"
+         sdk install gradleprofiler
+         gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 1 --iteration 1
+```
+I have kept `--warmups` and `--iteration` values to 1 in order to do quick testing and prototyping. Please modify it as you see fit for your use case.
+
+### Step 5- Upload Result to Repo
+After benchmarking is done we will be uploading result from docker container to Github repo, so that, we can download and use it later. Result is stored in a folder named `profile-out`. Here is how another standard action [`upload-artefact`](https://github.com/actions/upload-artifact) can be used to do this
+```yml
+      - uses: actions/upload-artifact@v2
+        with:
+         name: merge-benchmark
+         path: profile-out/benchmark.csv
+```
+
+### Step 6- Run another job for head commit
+By default if you specify multiple jobs in a workflow file they are started in parallel. For this case I wanted second job to start only after first job has finished running. This is because 
+1. There is no point in running second job if first fails. 
+2. In async jobs its difficult to determine which finished when and then create a third job for running analysis on benchmark results. 
+3. This will also save us some execution minutes and cost in turn in case of failure.
+
+Here is how its configured
+```yml
+  build-head:
+    needs: build-merge
+    runs-on: ubuntu-latest
+
+    steps:
+      # Clone repo
+      - name: Clone Repo
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
+```
+
+There are two things to notice here. First, `needs: build-merge` tells actions that this job is dependent on job with id `build-merge`. Only when that job is a success this job will begin its execution. Second, `ref: ${{ github.event.pull_request.head.sha }}` tells checkout action to pull PR head and not merge commit. After this we need to repeat installation steps as previous job.
+
+```yml
+      # Setup JDK on container
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+
+      - name: Install SDKMAN, Gradle Profiler and Begin Profiling
+        run: |
+          curl -s "https://get.sdkman.io" | bash
+          source "$HOME/.sdkman/bin/sdkman-init.sh"
+          sdk install gradleprofiler
+          gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 1 --iteration 1
+
+      - uses: actions/upload-artifact@v2
+        name: Archive Benchmark Result File
+        with:
+          name: head-benchmark
+          path: profile-out/benchmark.csv
+```
+
+### Step 7: Download Previous result and Compare
+We can download file that we previously uploaded via another action called [`download-artefact`](https://github.com/actions/download-artifact). I am going to download that in a folder called `profile-out-merge` in following way
+```yml
+      - uses: actions/download-artifact@v2
+        with:
+          name: merge-benchmark
+          path: profile-out-merge
+```
+`merge-benchmark` is name that we gave this artefact in Step 5. Once we have both benchmark results on file system we can write simple scripts in language of your choice and do any processing per requirement. Output file is a simple CSV file which looks like this 
+![gradle-profiler output](/assets/images/gradle_profiler_benchmark.png)
+
+Here is a python script which simply takes two benchmark files and prints out mean execution time of build
+```python
+import csv
+
+def getResult(fileName):
+    with open(fileName) as f:
+        next(f)  # Skip the header
+        reader = csv.reader(f, skipinitialspace=True)
+        return dict(reader)
+
+headResult = getResult('profile-out/benchmark.csv')
+mergeResult = getResult('profile-out-merge/benchmark.csv')
+
+headMean = headResult['mean']
+mergeMean = mergeResult['mean']
+
+print "Branch Head Build Time: " + headMean + " | Base Branch Build Time: " + mergeMean
+```
