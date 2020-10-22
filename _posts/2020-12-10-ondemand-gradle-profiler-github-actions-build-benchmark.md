@@ -1,24 +1,24 @@
 ---
 layout: post
-title:  "Automated, on demand benchmarking of Android Gradle builds with Github Actions"
+title:  "Automated, on-demand benchmarking of Android Gradle builds with Github Actions"
 date:   2020-10-12 8:00:00
 author: Abhishek
 categories: Android, Gradle, Android Build, Benchmarking, Gradle Profiler, Performance
 ---
 
-Slow build speeds are not something which are unfamiliar to us Android Developers. It specifically becomes a nuisance when your code base is large. Now a days `Kotlin` is preferred choice of development language for many developers(including myself). Since `Kotlin` is [known to have larger build times](https://medium.com/keepsafe-engineering/kotlin-vs-java-compilation-speed-e6c174b39b5d) then `Java` it becomes even more important keep a tab on those build times.
+Slow build speeds are not unfamiliar to us Android Developers. It specifically becomes a nuisance when your codebase is large. Nowadays` Kotlin` is the preferred choice of development language for many developers(including myself). Since `Kotlin` is [known to have larger build times](https://medium.com/keepsafe-engineering/kotlin-vs-java-compilation-speed-e6c174b39b5d) then `Java` it becomes even more important keep a tab on those build times.
 
-There are [many](https://www.freecodecamp.org/news/how-to-improve-the-build-speed-of-your-android-projects-bd49029d8602/) [build performance](https://developer.android.com/studio/build/optimize-your-build) [optimizations techniques and tutorials](https://medium.com/androiddevelopers/improving-build-speed-in-android-studio-3e1425274837) are available out there that one can apply to keep build speeds in check. However, one also need to measure efficacy of those optimizations. Benchmarking build after every change can be tedious and time consuming task, again, specially for larger code bases. Thats where [gradle-profiler](https://github.com/gradle/gradle-profiler) and [Github Actions](https://github.com/features/actions) come to our rescue.
+There are [many](https://www.freecodecamp.org/news/how-to-improve-the-build-speed-of-your-android-projects-bd49029d8602/) [build performance](https://developer.android.com/studio/build/optimize-your-build) [optimizations techniques and tutorials](https://medium.com/androiddevelopers/improving-build-speed-in-android-studio-3e1425274837) are available out there that one can apply to keep build speeds in check. However, one also needs to measure the efficacy of those optimizations. Benchmarking builds after every change can be a tedious and time-consuming task, again, especially for larger codebases. That's where [gradle-profiler](https://github.com/gradle/gradle-profiler) and [Github Actions](https://github.com/features/actions) come to our rescue.
 
-In this article I will explain how I built an `automated`, `on demand` build benchmarking workflow using `Github Actions`. I specifically chose to make workflow `on demand` and not `continuous` because it is un-necessary and suboptimal from costing and carbon perspective. Ideally you would want to check build times when you have introduced a new library, or changed some gradle configuration or version, or did some refactor effort for modularisation etc. It can also be determined at the time of code review whether a change set can affect build speeds. That's just my opinion though, I will also show how to run benchmarking on continuous basis as well. Let's begin.
+In this article, I will explain how I built an `automated`, `on-demand` build benchmarking workflow using `Github Actions`. I specifically chose to make workflow `on-demand` and not `continuous` because it is unnecessary and suboptimal from a costing and carbon perspective. Ideally, you would want to check build times when you have introduced a new library, or changed some Gradle configuration or version, or did some refactor effort for modularisation, etc. It can also be determined at the time of code review whether a changeset can affect build speeds. That's just my opinion though, I will also show how to run benchmarks on a continuous basis as well. Let's begin.
 
 ### About Github Actions
-[A lot](https://medium.com/@wkrzywiec/github-actions-for-android-first-approach-f616c24aa0f9) [has already been written](https://proandroiddev.com/how-to-github-actions-building-your-android-app-773779bcacab) [about Github Actions integration with Android builds](https://www.coletiv.com/blog/android-github-actions-setup/), but, for the sake of completeness I would like to put my interpretation in simple words. [Github actions](https://github.com/features/actions) essentially provide you command line access of a fresh computer with operating system of your choice. You can program this computer via [`YML`](https://yaml.org/) based workflow script. You can download your code on this computer, do bunch of stuff with it and then, you can also upload results back to your `Github` repository. You can even send them to your server via APIs and upload to your Slack team. Possibilities are limitless when you have a whole machine to fiddle with :). What I like about this approach is reproducibility, because, every-time your workflow runs it starts on a fresh instance, hence environment always remains constant.
+[A lot](https://medium.com/@wkrzywiec/github-actions-for-android-first-approach-f616c24aa0f9) [has already been written](https://proandroiddev.com/how-to-github-actions-building-your-android-app-773779bcacab) [about Github Actions integration with Android builds](https://www.coletiv.com/blog/android-github-actions-setup/), but, for the sake of completeness I would like to put my interpretation in simple words. [Github actions](https://github.com/features/actions) essentially provide you command-line access to a fresh computer with an operating system of your choice. You can program this computer via [`YML`](https://yaml.org/) based workflow script. You can download your code on this computer, do a bunch of stuff with it, and then, you can also upload results back to your `Github` repository. You can even send them to your server via APIs and upload them to your Slack team. Possibilities are limitless when you have a whole machine to fiddle with :). What I like about this approach is reproducibility, because, every-time your workflow runs it starts on a fresh instance, hence the environment always remains constant.
 
-One such complete workflow is called an Action which [can be redistributed](https://docs.github.com/en/free-pro-team@latest/actions/creating-actions) for other's to use. Pretty cool! Github actions are event driven which off-course integrate very well Github events like pull request, issue creation, comment, push etc. We will use this integration when we build our own action to benchmark builds.
+One such complete workflow is called an Action which [can be redistributed](https://docs.github.com/en/free-pro-team@latest/actions/creating-actions) for other's to use. Pretty cool! Github actions are event-driven which off-course integrate very well Github events like pull request, issue creation, comment, push, etc. We will use this integration when we build our own action to benchmark builds.
 
 ### About Gradle Profiler
-[Gradle Profiler](https://github.com/gradle/gradle-profiler) is a great tool for automating profiling and benchmarking information of gradle builds. It takes care of consistency and reproducibility of builds by running warmup builds before running actual measurement builds. `gradle-profiler` can be used to benchmark any gradle task, we will be using it to measure clean debug builds. There are two ways of using `gradle-profiler`.
+[Gradle Profiler](https://github.com/gradle/gradle-profiler) is a great tool for automating profiling and benchmarking information of Gradle builds. It takes care of the consistency and reproducibility of builds by running warmup builds before running actual measurement builds. `Gradle-profiler` can be used to benchmark any Gradle task, we will be using it to measure clean debug builds. There are two ways of using `gradle-profiler`.
 First directly from command line like 
 > gradle-profiler --benchmark --project-dir <root-dir-of-build> <task>
 
@@ -39,31 +39,31 @@ assemble {
     cleanup-tasks = ["clean"]
 }
 ```
-Contents of this file are self explanatory, we have essentially written `./gradlew clean assembleDebug` command in this scenario file.
+Contents of this file are self-explanatory, we have essentially written the `./gradlew clean assembleDebug` command in this scenario file.
 
 ### Lets Begin
-Let's begin writing Github action workflow now. We are going to create two jobs, one for merge commit and one for PR head commit. Here is exactly what we are going to do
+Let's begin writing the Github action workflow now. We are going to create two jobs, one for merge commit and one for PR head commit. Here is exactly what we are going to do
 #### Job 1
 1. Setup Trigger
-2. Clone Repo with merge commit
-3. Install JDK, SDKMAN and gradle-profiler
-4. Run profiler
+2. Clone Repo with a merge commit
+3. Install JDK, SDKMAN, and gradle-profiler
+4. Run the profiler
 5. Save results for later comparison and use
 
 #### Job 2
-6. Repeat Step 2, 3 and 4 for PR Head commit this time
+6. Repeat Step 2, 3, and 4 for PR Head commit this time
 7. Download results from Step #5 and run a Python Script to compare both
 8. Send results to Slack to your database or do whatever with it
 
 ### Step 1- Setup Action Trigger
-Since we want to run this action on demand we will be using [Pull Request Comment Trigger](https://github.com/Khan/pull-request-comment-trigger) action to listen for Pull Request comments. As soon as trigger comment is posted action will start executing. I am using `benchmark-build` as trigger phrase for this workflow. This action requires following `YML` block in trigger section of the workflow
+Since we want to run this action on demand we will be using [Pull Request Comment Trigger](https://github.com/Khan/pull-request-comment-trigger) action to listen for Pull Request comments. As soon as the triggering comment is posted action will start executing. I am using `benchmark-build` as a trigger phrase for this workflow. This action requires following the `YML` block in the trigger section of the workflow
 ```yml
 on:
   issue_comment:
     types: [created]
 ```
 
-After that we can start writing our first Job
+After that, we can start writing our first Job
 ```yml
 jobs:
   build-merge:
@@ -87,7 +87,7 @@ We can use standard [checkout action](https://github.com/actions/checkout) with 
 I have added `submodules: recursive` just in case your repo contains any submodules like one of my projects.
 
 ### Step 3- Install Required Dependencies
-We need `JDK 1.8`, [`SDKMAN`](https://sdkman.io/) and [`gradle-profiler`](https://github.com/gradle/gradle-profiler) to build and benchmark Android build. `SDKMAN` is required to install `gradle-profiler`. Here are [detailed instructions](https://github.com/gradle/gradle-profiler#installing) on it. The `YML` block looks like this. `run` is used to execute commands on a terminal.
+We need `JDK 1.8`, [`SDKMAN`](https://sdkman.io/), and [`gradle-profiler`](https://github.com/gradle/gradle-profiler) to build and benchmark Android build. `SDKMAN` is required to install `gradle-profiler`. Here are [detailed instructions](https://github.com/gradle/gradle-profiler#installing) on it. The `YML` block looks like this. `run` is used to execute commands on a terminal.
 
 ```yml
 # Setup JDK on container
@@ -100,23 +100,23 @@ We need `JDK 1.8`, [`SDKMAN`](https://sdkman.io/) and [`gradle-profiler`](https:
         run: |
          curl -s "https://get.sdkman.io" | bash
          source "$HOME/.sdkman/bin/sdkman-init.sh"
-         sdk install gradleprofiler
+         sdk install gradleprofiler 0.12.0
 ```
 
 ### Step 4- Run Profiler
-Somehow, I observed that `gradle-profiler` installation done in Step 3 was not available to next step so I fired benchmarking in same step only. That step now becomes
+Somehow, I observed that `gradle-profiler` installation done in Step 3 was not available to the next step so I fired benchmarking in the same step only. That step now becomes
 ```yml
       - name: Install SDKMAN, Gradle Profiler and Begin Profiling
         run: |
          curl -s "https://get.sdkman.io" | bash
          source "$HOME/.sdkman/bin/sdkman-init.sh"
-         sdk install gradleprofiler
+         sdk install gradleprofiler 0.12.0
          gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 1 --iteration 1
 ```
 *I have kept `--warmups` and `--iteration` values to 1 in order to do quick testing and prototyping. Please modify it as you see fit for your use case.*
 
 ### Step 5- Upload Result to Repo
-After benchmarking is done we will be uploading result from docker container to Github repo, so that, we can download and use it later. Result is stored in a folder named `profile-out`. Here is how another standard action [`upload-artefact`](https://github.com/actions/upload-artifact) can be used to do this
+After benchmarking is done we will be uploading the result from the docker container to the Github repo, so that, we can download and use it later. The result is stored in a folder named `profile-out`. Here is how another standard action [`upload-artifact`](https://github.com/actions/upload-artifact) can be used to do this
 ```yml
       - uses: actions/upload-artifact@v2
         with:
@@ -125,9 +125,9 @@ After benchmarking is done we will be uploading result from docker container to 
 ```
 
 ### Step 6- Run another job for head commit
-By default if you specify multiple jobs in a workflow file they are started in parallel. For this case I wanted second job to start only after first job has finished running. This is because 
-1. There is no point in running second job if first fails. 
-2. In async jobs its difficult to determine which finished when and then create a third job for running analysis on benchmark results. 
+By default, if you specify multiple jobs in a workflow file they are started in parallel. In this case, I wanted the second job to start only after the first job has finished running. This is because 
+1. There is no point in running the second job if the first fails. 
+2. In async jobs it's difficult to determine which finished when and then create a third job for running analysis on benchmark results. 
 3. This will also save us some execution minutes and cost in turn in case of failure.
 
 Here is how its configured
@@ -145,7 +145,7 @@ Here is how its configured
           ref: ${{ github.event.pull_request.head.sha }}
 ```
 
-There are two things to notice here. First, `needs: build-merge` tells actions that this job is dependent on job with id `build-merge`. Only when that job is a success this job will begin its execution. Second, `ref: ${{ github.event.pull_request.head.sha }}` tells checkout action to pull PR head and not merge commit. After this we need to repeat installation steps as previous job.
+There are two things to notice here. First, `needs: build-merge` tells actions that this job is dependent on the job with id `build-merge`. Only when that job is a success this job will begin its execution. Second, `ref: ${{ github.event.pull_request.head.sha }}` tells checkout action to pull PR head and not merge commit. After this, we need to repeat the installation steps as a previous job.
 
 ```yml
       # Setup JDK on container
@@ -158,7 +158,7 @@ There are two things to notice here. First, `needs: build-merge` tells actions t
         run: |
           curl -s "https://get.sdkman.io" | bash
           source "$HOME/.sdkman/bin/sdkman-init.sh"
-          sdk install gradleprofiler
+          sdk install gradleprofiler 0.12.0
           gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 1 --iteration 1
 
       - uses: actions/upload-artifact@v2
@@ -169,17 +169,17 @@ There are two things to notice here. First, `needs: build-merge` tells actions t
 ```
 
 ### Step 7: Download Previous result and Compare
-We can download file that we previously uploaded via another action called [`download-artefact`](https://github.com/actions/download-artifact). I am going to download that in a folder called `profile-out-merge` in following way
+We can download the file that we previously uploaded via another action called [`download-artifact`](https://github.com/actions/download-artifact). I am going to download that in a folder called `profile-out-merge` in the following way
 ```yml
       - uses: actions/download-artifact@v2
         with:
           name: merge-benchmark
           path: profile-out-merge
 ```
-`merge-benchmark` is name that we gave this artefact in Step 5. Once we have both benchmark results on file system you can write simple scripts in language of your choice and do any processing per requirement. Output file is a simple CSV file which looks like this 
+`merge-benchmark` is the name that we gave this artifact in Step 5. Once we have both benchmark results on the file system you can write simple scripts in the language of your choice and do any processing per requirement. Output file is a simple CSV file which looks like this 
 ![gradle-profiler output](/assets/images/gradle_profiler_benchmark.png)
 
-Here is a python script which simply takes two benchmark files and prints out mean execution time of build. This script also writes results in a file because it can then be used to send these results back to a `Slack` channel.
+Here is a python script that simply takes two benchmark files and prints out the mean execution time of build. This script also writes results in a file because it can then be used to send these results back to a `Slack` channel.
 ```python
 import csv
 
@@ -189,16 +189,17 @@ def getResult(fileName):
         reader = csv.reader(f, skipinitialspace=True)
         return dict(reader)
 
-headResult = getResult('profile-out/benchmark.csv')
+baseResult = getResult('profile-out/benchmark.csv')
 mergeResult = getResult('profile-out-merge/benchmark.csv')
 
-headMean = headResult['mean']
+baseMean = baseResult['mean']
 mergeMean = mergeResult['mean']
-buildStr = "Branch Head Build Time: " + headMean + " | Base Branch Build Time: " + mergeMean
+
+buildStr = "Branch Head Build Time: " + mergeMean + " | Base Branch Build Time: " + baseMean
 # print result on console and write in a file
 print buildStr
-with open("benchmark-result.txt") as f:
-  f.write(buildStr)
+with open("benchmark-result.txt", 'w') as f:
+    f.write(buildStr)
 ```
 
 ## See it in Action
@@ -210,3 +211,8 @@ You can see [the script](https://github.com/abhishekBansal/android-build-benchma
 
 2. Github Action triggered
 ![](/assets/images/action_triggred_by_comment.png)
+
+3. Execution and Result of Action
+
+
+*Note: I have specifically used `gradle-profiler` version `0.12.0` because I found that the latest version `0.15.0` no longer produces mean and other stats in the CSV file. I have [filed an issue](https://github.com/gradle/gradle-profiler/issues/287) here. I will update the article as the issue is updated*
