@@ -1,9 +1,10 @@
 ---
 layout: post
 title:  "Automated, on-demand benchmarking of Android Gradle builds with Github Actions"
-date:   2020-10-12 8:00:00
+date:   2020-10-23 8:00:00
 author: Abhishek
 categories: Android, Gradle, Android Build, Benchmarking, Gradle Profiler, Performance
+img: "build-benchmark/banner.jpg"
 ---
 
 Slow build speeds are not unfamiliar to us Android Developers. It specifically becomes a nuisance when your codebase is large. Nowadays` Kotlin` is the preferred choice of development language for many developers(including myself). Since `Kotlin` is [known to have larger build times](https://medium.com/keepsafe-engineering/kotlin-vs-java-compilation-speed-e6c174b39b5d) then `Java` it becomes even more important keep a tab on those build times.
@@ -243,10 +244,12 @@ Note that for this example I had enabled `minify` which had a significant impact
 ## Github Code
 You can find this [workflow in action here](https://github.com/abhishekBansal/android-build-benchmark-github-actions/blob/master/.github/workflows/PRBuildBenchmark.yml). 
 
-That's it for this post. All the best for your build times.
+That's it, we saw how Github action's simplicity combined with `gradle-profiler`'s goodness we were able to write a very useful workflow. I hope you find it helpful. If you have any thoughts or comments about this workflow do share it in comments.
+
+All the best for your build times.
 
 *Note: I have specifically used `gradle-profiler` version `0.12.0` because I found that the latest version `0.15.0` no longer produces mean and other stats in the CSV file. I have [filed an issue](https://github.com/gradle/gradle-profiler/issues/287) here. I will update the article as the issue is updated*
 
-*Update on the above note: They have removed calculated stats in the latest versions as it's evident from the above issue. However, this calculation can be performed in the python script. I will update the script and link that here.*
+*Update on the above note: They have removed calculated stats in the latest versions as it's evident from the above issue. However, this calculation can be performed in the python script. I will try to update the script and link that here.*
 
 Happy Coding!
