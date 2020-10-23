@@ -42,16 +42,16 @@ assemble {
 Contents of this file are self-explanatory, we have essentially written the `./gradlew clean assembleDebug` command in this scenario file.
 
 ### Lets Begin
-Let's begin writing the Github action workflow now. We are going to create two jobs, one for merge commit and one for PR head commit. Here is exactly what we are going to do
+Let's begin writing the Github action workflow now. We are going to create two jobs, one for base branch and one for PR head commit. Here is exactly what we are going to do
 #### Job 1
 1. Setup Trigger
-2. Clone Repo with a merge commit
+2. Clone Repo with PR head commit
 3. Install JDK, SDKMAN, and gradle-profiler
 4. Run the profiler
 5. Save results for later comparison and use
 
 #### Job 2
-6. Repeat Step 2, 3, and 4 for PR Head commit this time
+6. Repeat Step 2, 3, and 4 for base branch this time
 7. Download results from Step #5 and run a Python Script to compare both
 8. Send results to Slack to your database or do whatever with it
 
@@ -66,7 +66,7 @@ on:
 After that, we can start writing our first Job
 ```yml
 jobs:
-  build-merge:
+  build-head:
     runs-on: ubuntu-latest
 
     steps:
@@ -76,13 +76,23 @@ jobs:
           trigger: 'benchmark-build'
 ```
 
-### Step 2- Clone repo with merge commit
-We can use standard [checkout action](https://github.com/actions/checkout) with default values for cloning repo.
+### Step 2- Clone repo with PR head commit
+It's little tricky to get exact `ref/sha` of different branches when workflow trigger is `issue_comment` because it does not contain the required information directly. But, thanks to [pull-request-comment-branch](https://github.com/xt0rted/pull-request-comment-branch) action our life becomes easy.
+Here is how it is setup
 ```yml
+      - uses: xt0rted/pull-request-comment-branch@v1
+        id: comment-branch
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+```
+`GITHUB_TOKEN` here is something which is used to access `Github` APIs. It is automatically added by actions for us. This action produces some helpful outputs, which we can use in standard [checkout action](https://github.com/actions/checkout). For head commit we need to use `head_ref`
+```yml
+      # Clone head commit
       - name: Clone Repo
         uses: actions/checkout@v2
         with:
           submodules: recursive
+          ref: ${{ steps.comment-branch.outputs.head_ref }}
 ```
 I have added `submodules: recursive` just in case your repo contains any submodules like one of my projects.
 
@@ -120,11 +130,11 @@ After benchmarking is done we will be uploading the result from the docker conta
 ```yml
       - uses: actions/upload-artifact@v2
         with:
-         name: merge-benchmark
+         name: head-benchmark
          path: profile-out/benchmark.csv
 ```
 
-### Step 6- Run another job for head commit
+### Step 6- Run another job for base branch
 By default, if you specify multiple jobs in a workflow file they are started in parallel. In this case, I wanted the second job to start only after the first job has finished running. This is because 
 1. There is no point in running the second job if the first fails. 
 2. In async jobs it's difficult to determine which finished when and then create a third job for running analysis on benchmark results. 
@@ -132,20 +142,25 @@ By default, if you specify multiple jobs in a workflow file they are started in 
 
 Here is how its configured
 ```yml
-  build-head:
-    needs: build-merge
+  build-base:
+    needs: build-head
     runs-on: ubuntu-latest
 
     steps:
-      # Clone repo
+      - uses: xt0rted/pull-request-comment-branch@v1
+        id: comment-branch
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Clone base commit
       - name: Clone Repo
         uses: actions/checkout@v2
         with:
           submodules: recursive
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ steps.comment-branch.outputs.base_ref }}
 ```
 
-There are two things to notice here. First, `needs: build-merge` tells actions that this job is dependent on the job with id `build-merge`. Only when that job is a success this job will begin its execution. Second, `ref: ${{ github.event.pull_request.head.sha }}` tells checkout action to pull PR head and not merge commit. After this, we need to repeat the installation steps as a previous job.
+There are two things to notice here. First, `needs: build-head` tells actions that this job is dependent on the job with id `build-head`. Only when that job is a success this job will begin its execution. Second, `steps.comment-branch.outputs.base_ref` tells checkout action to pull base branch and not head commit. After this, we need to repeat the installation steps like previous job.
 
 ```yml
       # Setup JDK on container
@@ -164,38 +179,38 @@ There are two things to notice here. First, `needs: build-merge` tells actions t
       - uses: actions/upload-artifact@v2
         name: Archive Benchmark Result File
         with:
-          name: head-benchmark
+          name: base-benchmark
           path: profile-out/benchmark.csv
 ```
 
 ### Step 7: Download Previous result and Compare
-We can download the file that we previously uploaded via another action called [`download-artifact`](https://github.com/actions/download-artifact). I am going to download that in a folder called `profile-out-merge` in the following way
+We can download the file that we previously uploaded via another action called [`download-artifact`](https://github.com/actions/download-artifact). I am going to download that in a folder called `profile-out-head` in the following way
 ```yml
       - uses: actions/download-artifact@v2
         with:
-          name: merge-benchmark
-          path: profile-out-merge
+          name: head-benchmark
+          path: profile-out-head
 ```
-`merge-benchmark` is the name that we gave this artifact in Step 5. Once we have both benchmark results on the file system you can write simple scripts in the language of your choice and do any processing per requirement. Output file is a simple CSV file which looks like this 
-![gradle-profiler output](/assets/images/gradle_profiler_benchmark.png)
+`head-benchmark` is the name that we gave this artifact in Step 5. Once we have both benchmark results on the file system you can write simple scripts in the language of your choice and do any processing per requirement. Output file is a simple CSV file which looks like this 
+![gradle-profiler output](/assets/images/build-benchmark/gradle_profiler_benchmark.png)
 
-Here is a python script that simply takes two benchmark files and prints out the mean execution time of build. This script also writes results in a file because it can then be used to send these results back to a `Slack` channel.
+Here is a python script that simply takes two benchmark files and prints out the mean execution time of build. This script also writes results in a file because it can then be used to send these results back to a `Slack` channel or comment on the PR itself.
 ```python
 import csv
 
-def getResult(fileName):
+def get_result(fileName):
     with open(fileName) as f:
         next(f)  # Skip the header
         reader = csv.reader(f, skipinitialspace=True)
         return dict(reader)
 
 baseResult = getResult('profile-out/benchmark.csv')
-mergeResult = getResult('profile-out-merge/benchmark.csv')
+headResult = getResult('profile-out-head/benchmark.csv')
 
 baseMean = baseResult['mean']
-mergeMean = mergeResult['mean']
+headMean = headResult['mean']
 
-buildStr = "Branch Head Build Time: " + mergeMean + " | Base Branch Build Time: " + baseMean
+buildStr = "Branch Head Build Time: " + headMean + " | Base Branch Build Time: " + baseMean
 # print result on console and write in a file
 print buildStr
 with open("benchmark-result.txt", 'w') as f:
@@ -207,12 +222,23 @@ with open("benchmark-result.txt", 'w') as f:
 You can see [the script](https://github.com/abhishekBansal/android-build-benchmark-github-actions/blob/master/.github/workflows/PRBuildBenchmark.yml) and try it out for yourself by forking [this repo](https://github.com/abhishekBansal/android-build-benchmark-github-actions). Here are a few screenshots for reference
 
 1. Comment `benchmark-build` on PR
-![](/assets/images/comment_on_pr.png)
+![](/assets/images/build-benchmark/comment_on_pr.png)
 
 2. Github Action triggered
-![](/assets/images/action_triggred_by_comment.png)
+![](/assets/images/build-benchmark/action_triggered_by_comment.png)
 
 3. Execution and Result of Action
+![](/assets/images/build-benchmark/execution_end_result.png)
 
+Note that for this example I had enabled `minify` which had significant impact on build time, which explains more than double build time when compared to base branch.
+
+## Github Code
+You can find this [workflow in action here](https://github.com/abhishekBansal/android-build-benchmark-github-actions/blob/master/.github/workflows/PRBuildBenchmark.yml). 
+
+That's it for this post. All the best for your build times.
 
 *Note: I have specifically used `gradle-profiler` version `0.12.0` because I found that the latest version `0.15.0` no longer produces mean and other stats in the CSV file. I have [filed an issue](https://github.com/gradle/gradle-profiler/issues/287) here. I will update the article as the issue is updated*
+
+*Update  on above note: They have removed calculated stats in latest versions as its evident from above issue. However, this calculation can be performed in python script. I will update script and link that here.*
+
+Happy Coding!
