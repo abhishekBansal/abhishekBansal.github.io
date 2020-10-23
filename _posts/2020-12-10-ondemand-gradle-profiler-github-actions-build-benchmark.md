@@ -42,7 +42,7 @@ assemble {
 Contents of this file are self-explanatory, we have essentially written the `./gradlew clean assembleDebug` command in this scenario file.
 
 ### Lets Begin
-Let's begin writing the Github action workflow now. We are going to create two jobs, one for base branch and one for PR head commit. Here is exactly what we are going to do
+Let's begin writing the Github action workflow now. We are going to create two jobs, one for the base branch and one for PR head commit. Here is exactly what we are going to do
 #### Job 1
 1. Setup Trigger
 2. Clone Repo with PR head commit
@@ -51,7 +51,7 @@ Let's begin writing the Github action workflow now. We are going to create two j
 5. Save results for later comparison and use
 
 #### Job 2
-6. Repeat Step 2, 3, and 4 for base branch this time
+6. Repeat Step 2, 3, and 4 for the base branch this time
 7. Download results from Step #5 and run a Python Script to compare both
 8. Send results to Slack to your database or do whatever with it
 
@@ -77,22 +77,22 @@ jobs:
 ```
 
 ### Step 2- Clone repo with PR head commit
-It's little tricky to get exact `ref/sha` of different branches when workflow trigger is `issue_comment` because it does not contain the required information directly. But, thanks to [pull-request-comment-branch](https://github.com/xt0rted/pull-request-comment-branch) action our life becomes easy.
+It's a little tricky to get exact `ref/sha` of different branches when the workflow trigger is `issue_comment` because it does not contain the required information directly. But, thanks to [pull-request-comment-branch](https://github.com/xt0rted/pull-request-comment-branch) action our life becomes easy.
 Here is how it is setup
 ```yml
-      - uses: xt0rted/pull-request-comment-branch@v1
-        id: comment-branch
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+- uses: xt0rted/pull-request-comment-branch@v1
+  id: comment-branch
+  with:
+    repo_token: ${{ secrets.GITHUB_TOKEN }}
 ```
-`GITHUB_TOKEN` here is something which is used to access `Github` APIs. It is automatically added by actions for us. This action produces some helpful outputs, which we can use in standard [checkout action](https://github.com/actions/checkout). For head commit we need to use `head_ref`
+`GITHUB_TOKEN` here is something which is used to access `Github` APIs. It is automatically added by actions for us. This action produces some helpful outputs, which we can use in the standard [checkout action](https://github.com/actions/checkout). For head commit, we need to use `head_ref`
 ```yml
       # Clone head commit
-      - name: Clone Repo
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
-          ref: ${{ steps.comment-branch.outputs.head_ref }}
+- name: Clone Repo
+  uses: actions/checkout@v2
+  with:
+    submodules: recursive
+    ref: ${{ steps.comment-branch.outputs.head_ref }}
 ```
 I have added `submodules: recursive` just in case your repo contains any submodules like one of my projects.
 
@@ -101,40 +101,40 @@ We need `JDK 1.8`, [`SDKMAN`](https://sdkman.io/), and [`gradle-profiler`](https
 
 ```yml
 # Setup JDK on container
-      - name: Set up JDK 1.8
-        uses: actions/setup-java@v1
-        with:
-          java-version: 1.8
-          
-      - name: Install SDKMAN, Gradle Profiler
-        run: |
-         curl -s "https://get.sdkman.io" | bash
-         source "$HOME/.sdkman/bin/sdkman-init.sh"
-         sdk install gradleprofiler 0.12.0
+- name: Set up JDK 1.8
+  uses: actions/setup-java@v1
+  with:
+    java-version: 1.8
+    
+- name: Install SDKMAN, Gradle Profiler
+  run: |
+    curl -s "https://get.sdkman.io" | bash
+    source "$HOME/.sdkman/bin/sdkman-init.sh"
+    sdk install gradleprofiler 0.12.0
 ```
 
 ### Step 4- Run Profiler
 Somehow, I observed that `gradle-profiler` installation done in Step 3 was not available to the next step so I fired benchmarking in the same step only. That step now becomes
 ```yml
-      - name: Install SDKMAN, Gradle Profiler and Begin Profiling
-        run: |
-         curl -s "https://get.sdkman.io" | bash
-         source "$HOME/.sdkman/bin/sdkman-init.sh"
-         sdk install gradleprofiler 0.12.0
-         gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 1 --iteration 1
+- name: Install SDKMAN, Gradle Profiler and Begin Profiling
+  run: |
+    curl -s "https://get.sdkman.io" | bash
+    source "$HOME/.sdkman/bin/sdkman-init.sh"
+    sdk install gradleprofiler 0.12.0
+    gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 1 --iteration 1
 ```
 *I have kept `--warmups` and `--iteration` values to 1 in order to do quick testing and prototyping. Please modify it as you see fit for your use case.*
 
 ### Step 5- Upload Result to Repo
 After benchmarking is done we will be uploading the result from the docker container to the Github repo, so that, we can download and use it later. The result is stored in a folder named `profile-out`. Here is how another standard action [`upload-artifact`](https://github.com/actions/upload-artifact) can be used to do this
 ```yml
-      - uses: actions/upload-artifact@v2
-        with:
-         name: head-benchmark
-         path: profile-out/benchmark.csv
+- uses: actions/upload-artifact@v2
+  with:
+    name: head-benchmark
+    path: profile-out/benchmark.csv
 ```
 
-### Step 6- Run another job for base branch
+### Step 6- Run another job for the base branch
 By default, if you specify multiple jobs in a workflow file they are started in parallel. In this case, I wanted the second job to start only after the first job has finished running. This is because 
 1. There is no point in running the second job if the first fails. 
 2. In async jobs it's difficult to determine which finished when and then create a third job for running analysis on benchmark results. 
@@ -142,54 +142,54 @@ By default, if you specify multiple jobs in a workflow file they are started in 
 
 Here is how its configured
 ```yml
-  build-base:
-    needs: build-head
-    runs-on: ubuntu-latest
+build-base:
+  needs: build-head
+  runs-on: ubuntu-latest
 
-    steps:
-      - uses: xt0rted/pull-request-comment-branch@v1
-        id: comment-branch
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+  steps:
+    - uses: xt0rted/pull-request-comment-branch@v1
+      id: comment-branch
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Clone base commit
-      - name: Clone Repo
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
-          ref: ${{ steps.comment-branch.outputs.base_ref }}
+    # Clone base commit
+    - name: Clone Repo
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        ref: ${{ steps.comment-branch.outputs.base_ref }}
 ```
 
-There are two things to notice here. First, `needs: build-head` tells actions that this job is dependent on the job with id `build-head`. Only when that job is a success this job will begin its execution. Second, `steps.comment-branch.outputs.base_ref` tells checkout action to pull base branch and not head commit. After this, we need to repeat the installation steps like previous job.
+There are two things to notice here. First, `needs: build-head` tells actions that this job is dependent on the job with id `build-head`. Only when that job is a success this job will begin its execution. Second, `steps.comment-branch.outputs.base_ref` tells checkout action to pull the base branch and not head commit. After this, we need to repeat the installation steps like the previous job.
 
 ```yml
-      # Setup JDK on container
-      - name: Set up JDK 1.8
-        uses: actions/setup-java@v1
-        with:
-          java-version: 1.8
+# Setup JDK on container
+- name: Set up JDK 1.8
+  uses: actions/setup-java@v1
+  with:
+    java-version: 1.8
 
-      - name: Install SDKMAN, Gradle Profiler and Begin Profiling
-        run: |
-          curl -s "https://get.sdkman.io" | bash
-          source "$HOME/.sdkman/bin/sdkman-init.sh"
-          sdk install gradleprofiler 0.12.0
-          gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 1 --iteration 1
+- name: Install SDKMAN, Gradle Profiler and Begin Profiling
+  run: |
+    curl -s "https://get.sdkman.io" | bash
+    source "$HOME/.sdkman/bin/sdkman-init.sh"
+    sdk install gradleprofiler 0.12.0
+    gradle-profiler --benchmark --scenario-file build_performance.scenarios --warmups 1 --iteration 1
 
-      - uses: actions/upload-artifact@v2
-        name: Archive Benchmark Result File
-        with:
-          name: base-benchmark
-          path: profile-out/benchmark.csv
+- uses: actions/upload-artifact@v2
+  name: Archive Benchmark Result File
+  with:
+    name: base-benchmark
+    path: profile-out/benchmark.csv
 ```
 
 ### Step 7: Download Previous result and Compare
 We can download the file that we previously uploaded via another action called [`download-artifact`](https://github.com/actions/download-artifact). I am going to download that in a folder called `profile-out-head` in the following way
 ```yml
-      - uses: actions/download-artifact@v2
-        with:
-          name: head-benchmark
-          path: profile-out-head
+- uses: actions/download-artifact@v2
+  with:
+    name: head-benchmark
+    path: profile-out-head
 ```
 `head-benchmark` is the name that we gave this artifact in Step 5. Once we have both benchmark results on the file system you can write simple scripts in the language of your choice and do any processing per requirement. Output file is a simple CSV file which looks like this 
 ![gradle-profiler output](/assets/images/build-benchmark/gradle_profiler_benchmark.png)
@@ -217,6 +217,14 @@ with open("benchmark-result.txt", 'w') as f:
     f.write(buildStr)
 ```
 
+This script can be used in workflow as follows
+```yml
+- name: Print Difference
+  run: | 
+    chmod +x benchmark-difference.py
+    python benchmark-difference.py
+```
+
 ## See it in Action
 
 You can see [the script](https://github.com/abhishekBansal/android-build-benchmark-github-actions/blob/master/.github/workflows/PRBuildBenchmark.yml) and try it out for yourself by forking [this repo](https://github.com/abhishekBansal/android-build-benchmark-github-actions). Here are a few screenshots for reference
@@ -230,7 +238,7 @@ You can see [the script](https://github.com/abhishekBansal/android-build-benchma
 3. Execution and Result of Action
 ![](/assets/images/build-benchmark/execution_end_result.png)
 
-Note that for this example I had enabled `minify` which had significant impact on build time, which explains more than double build time when compared to base branch.
+Note that for this example I had enabled `minify` which had a significant impact on build time, which explains more than double build time when compared to the base branch.
 
 ## Github Code
 You can find this [workflow in action here](https://github.com/abhishekBansal/android-build-benchmark-github-actions/blob/master/.github/workflows/PRBuildBenchmark.yml). 
@@ -239,6 +247,6 @@ That's it for this post. All the best for your build times.
 
 *Note: I have specifically used `gradle-profiler` version `0.12.0` because I found that the latest version `0.15.0` no longer produces mean and other stats in the CSV file. I have [filed an issue](https://github.com/gradle/gradle-profiler/issues/287) here. I will update the article as the issue is updated*
 
-*Update  on above note: They have removed calculated stats in latest versions as its evident from above issue. However, this calculation can be performed in python script. I will update script and link that here.*
+*Update on the above note: They have removed calculated stats in the latest versions as it's evident from the above issue. However, this calculation can be performed in the python script. I will update the script and link that here.*
 
 Happy Coding!
