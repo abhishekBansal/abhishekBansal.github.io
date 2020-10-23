@@ -80,21 +80,23 @@ jobs:
 ### Step 2- Clone repo with PR head commit
 It's a little tricky to get exact `ref/sha` of different branches when the workflow trigger is `issue_comment` because it does not contain the required information directly. But, thanks to [pull-request-comment-branch](https://github.com/xt0rted/pull-request-comment-branch) action our life becomes easy.
 Here is how it is setup
-```yml
-- uses: xt0rted/pull-request-comment-branch@v1
-  id: comment-branch
-  with:
-    repo_token: ${{ secrets.GITHUB_TOKEN }}
-```
+
+{% raw %}
+    - uses: xt0rted/pull-request-comment-branch@v1
+      id: comment-branch
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+{% endraw %}
+
 `GITHUB_TOKEN` here is something which is used to access `Github` APIs. It is automatically added by actions for us. This action produces some helpful outputs, which we can use in the standard [checkout action](https://github.com/actions/checkout). For head commit, we need to use `head_ref`
-```yml
-      # Clone head commit
-- name: Clone Repo
-  uses: actions/checkout@v2
-  with:
-    submodules: recursive
-    ref: ${{ steps.comment-branch.outputs.head_ref }}
-```
+{% raw %}
+    # Clone head commit
+    - name: Clone Repo
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        ref: ${{ steps.comment-branch.outputs.head_ref }}
+{% endraw %}
 I have added `submodules: recursive` just in case your repo contains any submodules like one of my projects.
 
 ### Step 3- Install Required Dependencies
@@ -142,24 +144,24 @@ By default, if you specify multiple jobs in a workflow file they are started in 
 3. This will also save us some execution minutes and cost in turn in case of failure.
 
 Here is how its configured
-```yml
-build-base:
-  needs: build-head
-  runs-on: ubuntu-latest
+{% raw %}
+    build-base:
+      needs: build-head
+      runs-on: ubuntu-latest
 
-  steps:
-    - uses: xt0rted/pull-request-comment-branch@v1
-      id: comment-branch
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
+      steps:
+        - uses: xt0rted/pull-request-comment-branch@v1
+          id: comment-branch
+          with:
+            repo_token: ${{ secrets.GITHUB_TOKEN }}
 
-    # Clone base commit
-    - name: Clone Repo
-      uses: actions/checkout@v2
-      with:
-        submodules: recursive
-        ref: ${{ steps.comment-branch.outputs.base_ref }}
-```
+        # Clone base commit
+        - name: Clone Repo
+          uses: actions/checkout@v2
+          with:
+            submodules: recursive
+            ref: ${{ steps.comment-branch.outputs.base_ref }}
+{% endraw %}
 
 There are two things to notice here. First, `needs: build-head` tells actions that this job is dependent on the job with id `build-head`. Only when that job is a success this job will begin its execution. Second, `steps.comment-branch.outputs.base_ref` tells checkout action to pull the base branch and not head commit. After this, we need to repeat the installation steps like the previous job.
 
