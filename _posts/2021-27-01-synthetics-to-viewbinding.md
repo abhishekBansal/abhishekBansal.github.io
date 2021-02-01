@@ -12,7 +12,7 @@ img: "viewbinding/viewbinding_cover.jpg"
 2. They pollute the global namespace, as in every view is available everywhere in your app.
 3. They don't expose nullability information
 
-All of the above is solved in the new `View Binding` library, however, in one of my projects, there is heavy use of synthetics. In absence of an automated migration tool, it is a big pain to move every Activity, Fragment, View, Adapter, etc. to the new method of accessing views in a relatively large codebase. Also, accessing views consist of a sizable chunk of code in any app. It's not a good idea to rely too long on deprecated methods for something this important. In this article, I am going to share a few tips and tricks that can help you complete this otherwise cumbersome migration in a faster and easier way.
+All of the above is solved in the new `View Binding` library. In one of my projects, there is heavy use of synthetics. In absence of an automated migration tool, it is a big pain to move every Activity, Fragment, View, Adapter, etc. to the new method of accessing views in a relatively large codebase. Also, accessing views consist of a sizable chunk of code in any app. It's not a good idea to rely too long on deprecated methods for something this important. In this article, I am going to share a few tips and tricks that can help you complete this otherwise cumbersome migration in a faster and easier way.
 
 ## Use viewBinding delegate
 Using `ViewBinding` in a `Fragment` requires you to do the following.
@@ -131,6 +131,18 @@ Here is the final configuration of this template
 Here it is in action
 
 ![Wrapping a code block in scope function](/assets/images/viewbinding/binding_scope.gif)
+
+Once you are done with removing all synthetics from your app don't forget to remove following piece of code from `build.gradle` file. In `android` block
+```groovy
+androidExtensions {
+    experimental = true
+}
+```
+from top
+```groovy
+apply plugin: 'kotlin-android-extensions'
+```
+If you are using `@Parcelize` annotation in your app follow [this](https://stackoverflow.com/questions/64925126/how-to-use-parcelize-now-that-kotlin-android-extensions-is-being-deprecated).
 
 That's it, folks. This workflow helped me in boosting the migration speed by 2x to 3x. I hope you can gain some speedups in your workflow too. If you have a trick up your sleeve as well then do share.
 
