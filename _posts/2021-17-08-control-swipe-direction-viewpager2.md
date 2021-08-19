@@ -2,148 +2,76 @@
 layout: post
 title: Controlling swipe direction with ViewPager2
 date:   2021-08-17 8:00:00
-author: Abhishek
+author: Abhishek Bansal
 categories: Android, ViewPager2, UI, Views
 img: "viewbinding/viewbinding_cover.jpg"
 ---
 
-[Android Kotlin Extension Gradle](https://plugins.gradle.org/plugin/org.jetbrains.kotlin.android.extensions) plugin is [deprecated](https://android-developers.googleblog.com/2020/11/the-future-of-kotlin-android-extensions.html) in favor of [ViewBinding](https://developer.android.com/topic/libraries/view-binding). That marks the end of too good to be true `kotlinx.android.synthetic` bindings for XML files. While `synthetics` were very convenient they had the following shortcomings
-1. They only worked in Kotlin and are not supported in Java
-2. They pollute the global namespace, as in every view is available everywhere in your app.
-3. They don't expose nullability information
+The new [ViewPager2] api is replacement for good old [ViewPager] API that was used to create swipable views in Android. `ViewPager2` has lot of benefits over its predecessor like support for vertical swiping and dynamic number of fragments etc. Its also the recommended way creating swipeable views on Android moving forward.
 
-All of the above is solved in the new `View Binding` library. In one of my projects, there is heavy use of synthetics. In absence of an automated migration tool, it is a big pain to move every Activity, Fragment, View, Adapter, etc. to the new method of accessing views in a relatively large codebase. Also, accessing views consist of a sizable chunk of code in any app. It's not a good idea to rely too long on deprecated methods for something this important. In this article, I am going to share a few tips and tricks that can help you complete this otherwise cumbersome migration in a faster and easier way.
+In one of the places where we are using [ViewPager] in our app we enable/disable user swipe in either(left/right) or both directions at runtime. This is done on basis of some user actions. In `ViewPager` we did this by sub-classing `ViewPager` class and by overriding `onTouchEvent` and `onInterceptTouchEvent`. As [many] [of the] [stackoverflow] answers suggest it is possible to determine the direction in which user is attempting then swipe and then simply discarding those touch events.
 
-## Use viewBinding delegate
-Using `ViewBinding` in a `Fragment` requires you to do the following.
+We wanted to migrate this screen to `ViewPager2`, however, it is a `final` class which cannot be subclassed. This was a blocker for our migration till the time we found following solution.
+
+Before jumping on to the solution it important to understand that unlike `ViewPager`, `ViewPager2` is essentially super customized `RecyclerView`. It uses `RecyclerView`'s super powers to render and reuse views. Infact, [a lot of the code was removed] from `ViewPager` and all that responsibility was given to  `RecyclerView` instead. 
+
+Now that we know that `RecyclerView` handles view rendering, we can use `RecyclerView`'s APIs to handle swiping. RecyclerView takes `ItemTouchListener` which allows intercepting touch events. Let's first create an enum to specify all possible swipe direction combinations
 
 ```kotlin
-class DemoFragment : Fragment() {
-    // declare binding
-    private var binding: FragmentDemoBinding? = null
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
-                              savedInstanceState: Bundle?): View? {
-        // inflate and return view
-        binding = FragmentDemoBinding.inflate(inflater, container, false)
-        return binding?.root
+enum class SwipeDirection {
+    ALL, // swipe allowed in left and right both directions
+    LEFT, // swipe allowed in only Left direction
+    RIGHT, // only right
+    NONE // swipe is disabled completely
+}
+```
+
+This enum allows us to specify directions in which a user is allowed to swipe at any given point of time. Now we need to create a function which takes `MotionEvent` object and attempts to detect the direction user is trying to swipe, compare it with currently set `SwipeDirection` and then return `true` if user's intention and current setting matches `false` otherwise. Take a look at following function
+
+```kotlin
+private fun isSwipeAllowed(event: MotionEvent): Boolean {
+        if (direction === SwipeDirection.ALL) return true
+        if (direction == SwipeDirection.NONE) //disable any swipe
+            return false
+        if (event.action == MotionEvent.ACTION_DOWN) {
+            initialXValue = event.x
+            return true
+        }
+        if (event.action == MotionEvent.ACTION_MOVE) {
+            try {
+                val diffX: Float = event.x - initialXValue
+                if (diffX > 0 && direction == SwipeDirection.RIGHT) {
+                    // swipe from left to right detected
+                    return false
+                } else if (diffX < 0 && direction == SwipeDirection.LEFT) {
+                    // swipe from right to left detected
+                    return false
+                }
+            } catch (exception: Exception) {
+                exception.printStackTrace()
+            }
+        }
+        return true
     }
+```
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        // make it null to handle different view lifecycle in fragments
-        binding = null
-    }
+For most part this is self explanatory but, most interesting bit is that we are saving current `x` coordinate when a `ACTTION_DOWN` event is received. That is, user has touced the screen to begin swipe. After that, when use begins the swipe an `ACTION_MOVE` event is received.Here we can take the diff of initial x position and current x position and figure out in which direction user is trying to swipe, compare it with current setting and take decision accordingly. I have left out other details of `ItemTouchListener` for brevity. You can find [full implementation here]().
+
+Once this touch listener is set on VP2's RecyclerView, changing swipe control is matter of just setting the swipe direction on this touch listener as follows.
+```kotlin
+swipeControlTouchListener.setSwipeDirection(SwipeDirection.LEFT)
+```
+
+Now comes the dirty part where we have resort to a not so perfect solution and get access to `ViewPager2` to RecyclerView in a questionable way.
+```kotlin
+// apply touch listener on ViewPager RecyclerView
+val recyclerView = binding.viewPager[0] as? RecyclerView
+if (recyclerView != null) {
+    recyclerView.addOnItemTouchListener(swipeControlTouchListener)
+} else {
+    Log.w(localClassName, "RecyclerView is null, API/Version changed ?!")
 }
 ```
-While all you wanna do is this
-
-```kotlin
-class DemoFragment : Fragment(R.layout.fragment_demo) {
-    private val binding by viewBinding(FragmentDemoBinding::bind)
-}
-```
-That's lot less code. `by viewBinding()` [is a custom property delegate](https://medium.com/@Zhuinden/simple-one-liner-viewbinding-in-fragments-and-activities-with-kotlin-961430c6c07c) by [Gabor Varadi](https://medium.com/@Zhuinden). Apart from syntactic sugar it also has added benefit that you don't accidentally leave setting your `binding` instance to null in `onDestroyView`. Why you need to do that is explained in [official docs here](https://developer.android.com/topic/libraries/view-binding#fragments). I encourage you to read his post and understand how he has implemented this and how to use this in your Activities.
-
-## Consistent naming for ViewBinding instance
-While basic it is an important step before we move on. I recommend that you name your `View Binding` instance consistently(in fact use the same name wherever possible). In the above example I have named it `binding` instead of `demoBinding` or `demoFragmentBinding` etc. I always name my `View Binding` instance `binding` in all fragments and activities. You can choose this name as you like but keep it the same everywhere. This is to make live templates work that we will see next.
-
-
-## Live Template for property delegate
-We still have to go type this in every fragment/activity that we have
-```kotlin
-private val binding by viewBinding(FragmentDemoBinding::bind)
-```
-
-You could copy-paste this line every-time but it is faster to use the `Android Studio Live Templates` feature. New live templates can be created by going to `Preferences -> Editor -> Live Templates`. I usually create a new template group for project-specific templates. Create a new template group by pressing `+` on the right side of the preference dialog.
-
-![Creating a new Live Template group in Android Studio](/assets/images/viewbinding/new_group_live_template.png)
-
-Now create a new template by pressing `+` again or copy an existing template to the newly created group. I usually copy an existing template but for purpose of this article, I'll show how to create one from scratch. Next, you need to give an `abbreviation` for your new template. This is what you will be typing in the editor to access the template. I will name it `byVB` which is shortened form of `by viewBinding`. Put appropriate description so that other people in your team can understand what this template is about if you choose to share it. In `Template text` section put the following code 
-```kotlin
-private val binding by viewBinding($CLASS$::$METHOD$)
-```
-This is what will automatically be typed when you select the template from suggestions in the editor. The last bit is to select context, context lets Android Studio know where to apply this template. Select `Kotlin->Class` for purpose of this template. Here is how final this looks
-
-![Creating a live template for View Binding instance declaration in Android Studio](/assets/images/viewbinding/binding_object_declaration_live_template.png)
-
-Let us see this in action
-
-![Live template for View Binding instance declaration in Android Studio](/assets/images/viewbinding/binding_declaration.gif)
-
-Isn't that cool? That's just a declaration of binding instance though. We still need to make changes in code such that all views are accessed via this binding instance. Let's see how we can minimize that effort.
-
-## Use Kotlin scope functions where applicable
-We declared binding instance quickly but what about its actual usage? We still need to access views like `binding.textView` and so on everywhere. 
-Let's say you have this bunch of code in your Activity/Fragment somewhere
-
-```kotlin
-private fun showSuccessState(item: List<String>) {
-    progressBar.setVisible(false)
-    adapter.addItems(item)
-    recyclerView.setVisible(true)
-    successText.setVisible(true)
-}
-```
-
-one way to migrate this code is this
-
-```kotlin
-private fun showSuccessState(item: List<String>) {
-    binding.progressBar.setVisible(false)
-    binding.adapter.addItems(item)
-    binding.recyclerView.setVisible(true)
-    binding.successText.setVisible(true)
-}
-```
-
-But thanks to Kotlin you can do this
-```kotlin
-with(binding) {
-    progressBar.setVisible(false)
-    adapter.addItems(item)
-    recyclerView.setVisible(true)
-    successText.setVisible(true)
-}
-```
-`with` is one of the scope functions that language provides us. You might also need to use `binding?.apply {}` at times. Read more about scope functions [here](https://kotlinlang.org/docs/reference/scope-functions.html) and [here](https://blog.mindorks.com/using-scoped-functions-in-kotlin-let-run-with-also-apply)
-
-If you are thinking that its too much work to type in that `with` and then move existing code inside `{}` block, stop thinking and read on.
-
-## Use Live Template to insert scope functions
-
-If you have worked on Android Studio for some time you know that you can select a bunch of code and then press CMD+OPT+T (ALT+CTRL+T on windows) on mac and open a context menu that lets you surround that selected code with blocks like `if`, `if/else`, `try/catch` etc. We are gonna create a similar template for view binding with block. This template needs to go in a special template group called `surround`. Since we have already gone through the process of creating a new Live Template I will just show important bits here. Here is the live template code that we need to put
-```kotlin
-with(binding) { 
-    $SELECTION$ 
-}
-```
-similarly, you can create a template for `apply` case.
-```kotlin
-binding?.apply { 
-    $SELECTION$ 
-}
-```
-
-Here is the final configuration of this template
-
-![Live template for Scope function](/assets/images/viewbinding/surround_live_template.png)
-
-Here it is in action
-
-![Wrapping a code block in scope function](/assets/images/viewbinding/binding_scope.gif)
-
-Once you are done with removing all synthetics from your app don't forget to remove following piece of code from `build.gradle` file. In `android` block
-```groovy
-androidExtensions {
-    experimental = true
-}
-```
-from top
-```groovy
-apply plugin: 'kotlin-android-extensions'
-```
-If you are using `@Parcelize` annotation in your app follow [this](https://stackoverflow.com/questions/64925126/how-to-use-parcelize-now-that-kotlin-android-extensions-is-being-deprecated).
-
-That's it, folks. This workflow helped me in boosting the migration speed by 2x to 3x. I hope you can gain some speedups in your workflow too. If you have a trick up your sleeve as well then do share.
+Here we are relying on `RecyclerView` being first child of VP2 always, one solution could be to use `findViewById` but thats not possible because id of this RecyclerView is generated at runtime using `ViewCompat.generateViewId()` as you should be able to notice in VP2 source code. If you got a better idea do let me know in comments.
 
 Happy Coding!
