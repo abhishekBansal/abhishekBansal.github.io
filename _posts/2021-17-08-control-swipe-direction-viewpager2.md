@@ -4,7 +4,7 @@ title: Controlling swipe direction with ViewPager2
 date:   2021-08-17 8:00:00
 author: Abhishek Bansal
 categories: Android, ViewPager2, UI, Views
-img: "viewbinding/viewbinding_cover.jpg"
+img: "viewpager2/swipe-control.png"
 ---
 
 The new [ViewPager2](https://developer.android.com/training/animation/vp2-migration) API is a replacement for the good old [ViewPager](https://developer.android.com/reference/kotlin/androidx/viewpager/widget/ViewPager) API that was used to create swipeable views in Android. `ViewPager2` has a lot of benefits over its predecessor like support for vertical swiping, the possibility of using the diff-util and the dynamic number of fragments, etc. It is also the recommended way of creating swipeable views on Android [moving forward](https://developer.android.com/training/animation/vp2-migration#benefits).
