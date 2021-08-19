@@ -80,13 +80,10 @@ This is not a 100% perfect solution but a pretty good workaround for us for time
 
 If you think this can be improved let me know in the comments.
 
-Sample App with source: [SwipeControlViewPager2](https://github.com/abhishekBansal/SwipeControlViewPager2)
-<<<<<<< HEAD
+**Sample App with source:**
+[SwipeControlViewPager2](https://github.com/abhishekBansal/SwipeControlViewPager2)
 
-<b>Credit:</b>
+**Credit:**
 The `SwipeControlTouchListener` is slightly modified version of this [stackoverflow answer](https://stackoverflow.com/questions/19602369/how-to-disable-viewpager-from-swiping-in-one-direction).
-=======
-Credit: The `SwipeControlTouchListener` is slightly modified version of this [stackoverflow answer](https://stackoverflow.com/questions/19602369/how-to-disable-viewpager-from-swiping-in-one-direction).
->>>>>>> ffae3355331274c8a1bdcc184829037569ce6e53
 
 Happy Coding!
