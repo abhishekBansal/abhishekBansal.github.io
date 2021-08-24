@@ -83,6 +83,9 @@ If you think this can be improved let me know in the comments.
 **Sample App with source:**
 [SwipeControlViewPager2](https://github.com/abhishekBansal/SwipeControlViewPager2)
 
+**Same result with Gesture Overlay:**
+We also tried a [`GestureOverlay` based approach](https://medium.com/@ramt57/viewpager2-disable-swiping-in-a-specific-direction-317265b554ea) which works pretty well in most of the cases. We ran into some minor issues related to child view scrolling and fast swiping. In interest of time we finalised on approach discussed above. You can deep dive on GestureOverlay based [approach here](https://medium.com/@ramt57/viewpager2-disable-swiping-in-a-specific-direction-317265b554ea).
+
 **Credit:**
 The `SwipeControlTouchListener` is slightly modified version of this [stackoverflow answer](https://stackoverflow.com/questions/19602369/how-to-disable-viewpager-from-swiping-in-one-direction).
 
