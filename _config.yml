@@ -17,6 +17,8 @@
 title: Abhishek Bansal's Blog
 description: > # this means to ignore newlines until "baseurl:"
   Android, Tech and Stuff
+resume: "assets/images/resume/AbhishekBansal-Resume.pdf"
+portfolio: "assets/images/resume/PortfolioAbhishekBansal.pdf"
 permalink: ':title/'
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "https://abhishekbansal.dev" # the base hostname & protocol for your site, e.g. http://example.com
