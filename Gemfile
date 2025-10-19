@@ -1,37 +1,29 @@
 source "https://rubygems.org"
 
-# Hello! This is where you manage which Jekyll version is used to run.
-# When you want to use a different version, change it below, save the
-# file and run `bundle install`. Run Jekyll with `bundle exec`, like so:
-#
-#     bundle exec jekyll serve
-#
-# This will help ensure the proper Jekyll version is running.
-# Happy Jekylling!
-#gem "jekyll", "~> 3.8.7"
+# Use the latest stable version of Jekyll
+gem "jekyll", "~> 4.3.2"
 
-# If you want to use GitHub Pages, remove the "gem "jekyll"" above and
-# uncomment the line below. To upgrade, run `bundle update github-pages`.
-gem "github-pages", "~> 218", group: :jekyll_plugins
-
-# If you have any plugins, put them here!
+# Plugins
 group :jekyll_plugins do
-  gem "jekyll-feed", "~> 0.6"
-  gem "jekyll-sitemap"
-  gem "jekyll-paginate"
-  gem "jemoji"
+  gem "jekyll-feed", "~> 0.17.0"
+  gem "jekyll-sitemap", "~> 1.4.0"
+  gem "jekyll-paginate", "~> 1.1.0"
+  gem "jemoji", "~> 0.13.0"
+  gem "jekyll-seo-tag", "~> 2.8.0"
 end
 
-# Windows does not include zoneinfo files, so bundle the tzinfo-data gem
-# and associated library.
-install_if -> { RUBY_PLATFORM =~ %r!mingw|mswin|java! } do
-  gem "tzinfo", "~> 1.2"
+# Required for Ruby 3+
+gem "webrick", "~> 1.8"
+
+# Additional dependencies
+gem "csv", "~> 3.2"
+gem "bigdecimal", "~> 3.1"
+
+# Windows and JRuby does not include zoneinfo files
+platforms :mingw, :x64_mingw, :mswin, :jruby do
+  gem "tzinfo", ">= 1.2"
   gem "tzinfo-data"
 end
 
 # Performance-booster for watching directories on Windows
-gem "wdm", "~> 0.1.0", :install_if => Gem.win_platform?
-
-gem 'csv'
-gem 'bigdecimal'
-gem "webrick", "~> 1.9"
+gem "wdm", "~> 0.1.1", :platforms => [:mingw, :x64_mingw, :mswin]
