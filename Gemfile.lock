@@ -1,7 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (8.0.3)
+    activesupport (7.2.3.1)
       base64
       benchmark (>= 0.3)
       bigdecimal
@@ -10,10 +10,9 @@ GEM
       drb
       i18n (>= 1.6, < 2)
       logger (>= 1.4.2)
-      minitest (>= 5.1)
+      minitest (>= 5.1, < 6)
       securerandom (>= 0.3)
       tzinfo (~> 2.0, >= 2.0.5)
-      uri (>= 0.13.1)
     addressable (2.8.7)
       public_suffix (>= 2.0.2, < 7.0)
     base64 (0.3.0)
@@ -28,9 +27,13 @@ GEM
       eventmachine (>= 0.12.9)
       http_parser.rb (~> 0)
     eventmachine (1.2.7)
+    ffi (1.17.2-arm64-darwin)
     ffi (1.17.2-x86_64-linux-gnu)
     forwardable-extended (2.6.0)
     gemoji (4.1.0)
+    google-protobuf (4.33.0-arm64-darwin)
+      bigdecimal
+      rake (>= 13)
     google-protobuf (4.33.0-x86_64-linux-gnu)
       bigdecimal
       rake (>= 13)
@@ -82,6 +85,8 @@ GEM
     logger (1.7.0)
     mercenary (0.4.0)
     minitest (5.26.0)
+    nokogiri (1.18.10-arm64-darwin)
+      racc (~> 1.4)
     nokogiri (1.18.10-x86_64-linux-gnu)
       racc (~> 1.4)
     pathutil (0.16.2)
@@ -95,6 +100,8 @@ GEM
     rexml (3.4.4)
     rouge (4.6.1)
     safe_yaml (1.0.5)
+    sass-embedded (1.93.2-arm64-darwin)
+      google-protobuf (~> 4.31)
     sass-embedded (1.93.2-x86_64-linux-gnu)
       google-protobuf (~> 4.31)
     securerandom (0.4.1)
@@ -103,10 +110,10 @@ GEM
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
     unicode-display_width (2.6.0)
-    uri (1.0.4)
     webrick (1.9.1)
 
 PLATFORMS
+  arm64-darwin-24
   x86_64-linux-gnu
 
 DEPENDENCIES
