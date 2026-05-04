@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Managing Multiple GitHub Accounts on One Mac"
-date: 2026-04-01 12:00:00 -0500
+date: 2026-05-01 12:00:00 -0500
 categories: [Git, Developer Tools]
 author: Abhishek Bansal
 tags: [github, macos, ssh, productivity]
