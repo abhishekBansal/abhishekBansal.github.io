@@ -96,9 +96,7 @@ git clone git@github.com:company/work-repo.git
 
 **Personal Repos:** Modify the URL to use your alias instead of standard `github.com`.
 * Standard URL: `git@github.com:username/my-repo.git`
-* **What you should type:** ```bash
-  git clone git@github.com-personal:username/my-repo.git
-  ```
+* **What you should type:** `git clone git@github.com-personal:username/my-repo.git`
 
 *Crucial Last Step:* Once cloned, immediately navigate into the personal repo and set your personal email so your commits map correctly on GitHub:
 ```bash
